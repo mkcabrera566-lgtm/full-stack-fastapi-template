@@ -66,6 +66,8 @@ keep-runtime-typing = true
 
 [tool.coverage.run]
 source = ["app"]
+# Migration tests validate SQL/schema separately; revision discovery imports old scripts.
+omit = ["app/alembic/*"]
 dynamic_context = "test_function"
 
 [tool.coverage.report]

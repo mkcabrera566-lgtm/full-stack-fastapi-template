@@ -31,7 +31,9 @@ jobs:
         run: uv run bash scripts/prestart.sh
         working-directory: backend
       - name: Run tests
-        run: uv run bash scripts/tests-start.sh "Coverage for ${{ github.sha }}"
+        run: |
+          export TEST_DATABASE_URL="$(uv run python -c 'from app.core.config import settings; print(settings.DATABASE_URL)')"
+          uv run bash scripts/tests-start.sh "Coverage for ${{ github.sha }}"
         working-directory: backend
       - run: docker compose down -v --remove-orphans
       - name: Store coverage files

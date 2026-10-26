@@ -1,7 +1,9 @@
 import uuid
 from datetime import UTC, datetime
+from enum import StrEnum
 
-from pydantic import EmailStr
+from pydantic import EmailStr, field_validator
+from sqlalchemy import Enum as SAEnum
 from sqlmodel import Field, Relationship, SQLModel
 
 
@@ -53,6 +55,7 @@ class User(UserBase, table=True):
     hashed_password: str
     created_at: datetime | None = Field(default_factory=get_datetime_utc)
     items: list[Item] = Relationship(back_populates="owner", cascade_delete=True)
+    tickets: list[Ticket] = Relationship(back_populates="owner", cascade_delete=True)
 
 
 # Properties to return via API, id is always required
@@ -102,6 +105,92 @@ class ItemPublic(ItemBase):
 
 class ItemsPublic(SQLModel):
     data: list[ItemPublic]
+    count: int
+
+
+class TicketStatus(StrEnum):
+    open = "open"
+    in_progress = "in_progress"
+    resolved = "resolved"
+    closed = "closed"
+
+
+class TicketPriority(StrEnum):
+    low = "low"
+    medium = "medium"
+    high = "high"
+    urgent = "urgent"
+
+
+class TicketBase(SQLModel):
+    model_config = SQLModel.model_config.copy()
+    model_config["str_strip_whitespace"] = True
+
+    title: str = Field(min_length=1, max_length=255)
+    description: str = Field(min_length=1, max_length=10000)
+    priority: TicketPriority = Field(default=TicketPriority.medium)
+
+
+class TicketCreate(TicketBase):
+    model_config = TicketBase.model_config.copy()
+    model_config["extra"] = "forbid"
+
+
+class TicketUpdate(SQLModel):
+    model_config = SQLModel.model_config.copy()
+    model_config["extra"] = "forbid"
+    model_config["str_strip_whitespace"] = True
+
+    title: str | None = Field(default=None, min_length=1, max_length=255)
+    description: str | None = Field(default=None, min_length=1, max_length=10000)
+    status: TicketStatus | None = None
+    priority: TicketPriority | None = None
+
+    @field_validator("title", "description", "status", "priority", mode="before")
+    @classmethod
+    def reject_explicit_null(cls, value: object) -> object:
+        # Missing PATCH fields keep their defaults; explicit null would violate NOT NULL.
+        if value is None:
+            raise ValueError("Field may be omitted, but must not be null")
+        return value
+
+
+class Ticket(TicketBase, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    status: TicketStatus = Field(
+        default=TicketStatus.open,
+        sa_type=SAEnum(
+            TicketStatus,
+            name="ticket_status",
+            native_enum=False,
+            create_constraint=True,
+        ),
+    )
+    priority: TicketPriority = Field(
+        default=TicketPriority.medium,
+        sa_type=SAEnum(
+            TicketPriority,
+            name="ticket_priority",
+            native_enum=False,
+            create_constraint=True,
+        ),
+    )
+    created_at: datetime = Field(default_factory=get_datetime_utc)
+    owner_id: uuid.UUID = Field(
+        foreign_key="user.id", nullable=False, ondelete="CASCADE", index=True
+    )
+    owner: User | None = Relationship(back_populates="tickets")
+
+
+class TicketPublic(TicketBase):
+    id: uuid.UUID
+    status: TicketStatus
+    created_at: datetime
+    owner_id: uuid.UUID
+
+
+class TicketsPublic(SQLModel):
+    data: list[TicketPublic]
     count: int
 
 
