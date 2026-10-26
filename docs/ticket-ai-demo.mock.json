@@ -1,0 +1,77 @@
+{
+  "mode": "mock",
+  "database": "isolated_temporary_sqlite_file",
+  "http_flow": [
+    {
+      "step": "login",
+      "method": "POST",
+      "path": "/api/v1/login/access-token",
+      "status": 200
+    },
+    {
+      "step": "create_ticket",
+      "method": "POST",
+      "path": "/api/v1/tickets/",
+      "status": 201
+    },
+    {
+      "step": "read_ticket",
+      "method": "GET",
+      "path": "/api/v1/tickets/{ticket_id}",
+      "status": 200
+    },
+    {
+      "step": "ai_analysis",
+      "method": "POST",
+      "path": "/api/v1/tickets/{ticket_id}/ai-analysis",
+      "status": 200
+    },
+    {
+      "step": "read_after_analysis",
+      "method": "GET",
+      "path": "/api/v1/tickets/{ticket_id}",
+      "status": 200
+    }
+  ],
+  "ai_analysis": {
+    "category": "billing",
+    "summary": "用户反馈会员支付成功但权益未开通，实际状态待核查。",
+    "suggested_priority": "medium",
+    "suggested_reply": "您反馈已支付但会员权益尚未开通。目前无法确认支付状态和权益状态；建议提供订单号，由具备查询权限的客服核查。"
+  },
+  "pydantic_validation": "passed",
+  "quality": {
+    "status": "no_flags",
+    "flags": [],
+    "requires_human_review": true
+  },
+  "checks": {
+    "http_ticket_unchanged": true,
+    "new_connection_ticket_unchanged": true,
+    "fields_checked": [
+      "created_at",
+      "description",
+      "id",
+      "owner_id",
+      "priority",
+      "status",
+      "title"
+    ]
+  },
+  "request_sessions": 5,
+  "ticket": {
+    "title": "会员支付成功，但账户权益没有开通",
+    "description": "虚构演示：用户反馈已支付会员费用，但账户权益尚未开通；实际支付和权益状态待核查。",
+    "status": "open",
+    "priority": "medium"
+  },
+  "prompt_policy_present": true,
+  "errors": [],
+  "result": "passed",
+  "ai_attempts": {
+    "mock": 1,
+    "real": 0,
+    "limit": 1
+  },
+  "database_removed": true
+}
