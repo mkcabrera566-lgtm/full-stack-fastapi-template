@@ -3,8 +3,10 @@ from typing import Literal, Self
 
 from pydantic import (
     EmailStr,
+    Field,
     HttpUrl,
     PostgresDsn,
+    SecretStr,
     computed_field,
     field_validator,
     model_validator,
@@ -29,6 +31,15 @@ class Settings(BaseSettings):
     PROJECT_NAME: str
     SENTRY_DSN: HttpUrl | None = None
     DATABASE_URL: PostgresDsn
+
+    DASHSCOPE_API_KEY: SecretStr | None = None
+    QWEN_BASE_URL: HttpUrl = HttpUrl(
+        "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    )
+    QWEN_MODEL: str = Field(
+        default="qwen-plus", min_length=1, max_length=128, pattern=r"\S"
+    )
+    QWEN_TIMEOUT_SECONDS: float = Field(default=15.0, gt=0, le=120, allow_inf_nan=False)
 
     @field_validator("DATABASE_URL", mode="before")
     @classmethod

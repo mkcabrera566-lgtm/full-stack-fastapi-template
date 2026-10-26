@@ -15,6 +15,12 @@ from app.models import (
     TicketUpdate,
     User,
 )
+from app.services.ticket_ai import (
+    AIAnalysisError,
+    AIErrorCode,
+    TicketAIAnalysis,
+    analyze_ticket,
+)
 
 router = APIRouter(prefix="/tickets", tags=["tickets"])
 
@@ -88,6 +94,32 @@ def read_ticket(
 ) -> Ticket:
     """Read an owned ticket, or any ticket as an administrator."""
     return _get_ticket(session, current_user, id)
+
+
+@router.post("/{ticket_id}/ai-analysis", response_model=TicketAIAnalysis)
+def analyze_ticket_ai(
+    session: SessionDep, current_user: CurrentUser, ticket_id: uuid.UUID
+) -> TicketAIAnalysis:
+    """Return AI suggestions after checking ticket access; never update the ticket."""
+    ticket = _get_ticket(session, current_user, ticket_id)
+    title, description = ticket.title, ticket.description
+    # Inference needs only a text snapshot; release the read transaction/connection.
+    session.rollback()
+    try:
+        return analyze_ticket(title=title, description=description)
+    except AIAnalysisError as error:
+        responses = {
+            AIErrorCode.not_configured: (503, "AI analysis is not configured"),
+            AIErrorCode.timeout: (504, "AI provider request timed out"),
+            AIErrorCode.rate_limited: (429, "AI provider rate limit exceeded"),
+            AIErrorCode.invalid_response: (
+                502,
+                "AI provider returned an invalid response",
+            ),
+            AIErrorCode.upstream_error: (502, "AI provider request failed"),
+        }
+        status_code, detail = responses[error.code]
+        raise HTTPException(status_code=status_code, detail=detail) from None
 
 
 @router.patch("/{id}", response_model=TicketPublic)
